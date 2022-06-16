@@ -1,6 +1,6 @@
 import os
 import sys
-from flask import Flask, request, abort, jsonify
+from flask import Flask, request, abort, jsonify, redirect, url_for
 from flask_sqlalchemy import SQLAlchemy
 from flask_cors import CORS
 import random
@@ -115,6 +115,50 @@ def create_app(test_config=None):
     the form will clear and the question will appear at the end of the last page
     of the questions list in the "List" tab.
     """
+    @app.route('/questions', methods=['POST'])
+    def create_question():
+        body = request.get_json()
+        print(body)
+        #{'question': 'Hie', 'answer': 'whay', 'difficulty': '2', 'category': '3'} {'searchTerm': 'title'}
+        new_qstn = body.get("question", None)
+        new_ans = body.get("answer", None)
+        new_diff = body.get("difficulty", None)
+        new_cat = body.get("category", None)
+        searchTerm = body.get("searchTerm", None)
+        if searchTerm is not None:
+            return redirect(url_for('search_questions', search_term=searchTerm))
+        
+        if new_qstn is  None:
+            abort(400)
+        try:
+            """ if search:
+                selection = Book.query.filter(Book.title.ilike(f"%{search}%")).order_by(Book.id).all()
+                #query.filter(Artist.name.ilike(f"%{search_term}%")).all()
+                current_books = paginate_books(request, selection)
+                return jsonify(
+                    {
+                        "success": True,
+                        "books": current_books,
+                        "total_books": len(selection)
+                    }
+                )
+            else: """
+            add_qstn = Question(
+                question = new_qstn,
+                answer = new_ans,
+                difficulty = new_diff,
+                category = new_cat
+            )
+            #add_qstn.insert()
+            return jsonify(
+                {
+                    "success": True
+                }
+            )
+        except:
+            print(sys.exc_info())
+            abort(422)
+
 
     """
     @TODO:
@@ -126,7 +170,27 @@ def create_app(test_config=None):
     only question that include that string within their question.
     Try using the word "title" to start.
     """
-
+    @app.route('/questions/search', methods=['POST'])
+    def search_questions():
+        print("Testing search")
+        search_term = request.get_json().get("searchTerm", None)
+        print(search_term)
+        query_value = Question.query.filter(Question.question.ilike(f"%{search_term}%")).order_by('id').all()
+        #print(query_value)
+        
+        try:
+            current_questions = paginate_questions(request, query_value)
+            #if len(current_questions) == 0:
+            #    abort(404)
+            return jsonify({
+                'success' : True,
+                'questions': current_questions,
+                'total_questions' : len(query_value),
+                "current_category" : "History"
+            })
+        except:
+            print(sys.exc_info())
+            abort(422)
     """
     @TODO:
     Create a GET endpoint to get questions based on category.
@@ -135,6 +199,26 @@ def create_app(test_config=None):
     categories in the left column will cause only questions of that
     category to be shown.
     """
+    @app.route('/categories/<int:category_id>/questions')
+    def retrieve_category_questions(category_id):
+        query_value = Question.query.filter(Question.category == category_id).order_by('id').all()
+        current_questions = paginate_questions(request, query_value)
+        print(current_questions)
+        if len(current_questions) == 0:
+            abort(404)
+        try:
+            current_category = Category.query.filter(Category.id == category_id).one_or_none()
+            #print(current_category)
+            #print(current_category.type)
+            return jsonify({
+                'success' : True,
+                'questions': current_questions,
+                'total_questions' : len(query_value),
+                "current_category" : current_category.type
+            })
+        except:
+            print(sys.exc_info())
+            abort(400)
 
     """
     @TODO:
@@ -153,6 +237,37 @@ def create_app(test_config=None):
     Create error handlers for all expected errors
     including 404 and 422.
     """
+    @app.errorhandler(400)
+    def bad_request_error(error):
+        return jsonify({
+            'success' : False,
+            'error' : 400,
+            'message' : "The request was invalid"
+        }), 400
 
+    @app.errorhandler(404)
+    def not_found_error(error):
+        return jsonify({
+            'success' : False,
+            'error' : 404,
+            'message' : "The request is not found"
+        }), 404
+
+    @app.errorhandler(422)
+    def unprocessable_error(error):
+        return jsonify({
+            'success' : False,
+            'error' : 422,
+            'message' : "The request cannot be processed"
+        })
+
+    @app.errorhandler(405)
+    def method_not_allowed_error(error):
+        return jsonify({
+            'success' : False,
+            'error' : 405,
+            'message' : "Method not Allowed"
+        })
+        
     return app
 
