@@ -4,6 +4,8 @@ from flask import Flask, request, abort, jsonify, redirect, url_for
 from flask_sqlalchemy import SQLAlchemy
 from flask_cors import CORS
 import random
+import werkzeug
+from sqlalchemy import func, exc
 
 
 from models import setup_db, Question, Category
@@ -76,27 +78,32 @@ def create_app(test_config=None):
     """
     @app.route('/questions')
     def retrieve_questions():
-        query_value = Question.query.order_by('id').all()
-        #print(query_value)
-        current_questions = paginate_questions(request, query_value)
-        if len(current_questions) == 0:
-            abort(404)
         try:
+            query_value = Question.query.order_by('id').all()
+            #print(query_value)
+            current_questions = paginate_questions(request, query_value)
+            if len(current_questions) == 0:
+                raise werkzeug.exceptions.NotFound
+                #raise werkzeug.exceptions.Unauthorized
             category_values = Category.query.order_by('id').all()
             #print(query_value)
             data= {category.id  : category.type for category in category_values}
-            
+
             return jsonify({
                 'success' : True,
                 'questions': current_questions,
                 'total_questions' : len(query_value),
                 'categories': data,
-                "current_category" : "History"
+                "current_category" : None
             })
-        except:
+            #except TypeError:
+        except werkzeug.exceptions.NotFound:
+            print(sys.exc_info())
+            abort(404)
+        except :
             print(sys.exc_info())
             abort(400)
-    
+
     """
     @TODO:
     Create an endpoint to DELETE question using a question ID.
@@ -104,6 +111,25 @@ def create_app(test_config=None):
     TEST: When you click the trash icon next to a question, the question will be removed.
     This removal will persist in the database and when you refresh the page.
     """
+    @app.route('/questions/<int:question_id>', methods=['DELETE'])
+    def delete_question(question_id):
+        print(question_id)
+        try:
+            del_question = Question.query.filter(Question.id == question_id).one_or_none()
+            if del_question is None:
+                #abort(400)
+                raise werkzeug.exceptions.NotFound
+            del_question.delete()
+            return jsonify({
+                'success': True
+            })
+        except werkzeug.exceptions.NotFound:
+            print(sys.exc_info())
+            abort(404)
+        except:
+            print(sys.exc_info())
+            print(sys.exc_info()[1])
+            abort(422)
 
     """
     @TODO:
@@ -124,40 +150,31 @@ def create_app(test_config=None):
         new_ans = body.get("answer", None)
         new_diff = body.get("difficulty", None)
         new_cat = body.get("category", None)
-        searchTerm = body.get("searchTerm", None)
-        if searchTerm is not None:
-            return redirect(url_for('search_questions', search_term=searchTerm))
-        
-        if new_qstn is  None:
-            abort(400)
+        print(new_qstn)
         try:
-            """ if search:
-                selection = Book.query.filter(Book.title.ilike(f"%{search}%")).order_by(Book.id).all()
-                #query.filter(Artist.name.ilike(f"%{search_term}%")).all()
-                current_books = paginate_books(request, selection)
-                return jsonify(
-                    {
-                        "success": True,
-                        "books": current_books,
-                        "total_books": len(selection)
-                    }
-                )
-            else: """
+            if new_qstn is  None:
+                #abort(400)
+                raise werkzeug.exceptions.BadRequest
+
             add_qstn = Question(
                 question = new_qstn,
                 answer = new_ans,
                 difficulty = new_diff,
                 category = new_cat
             )
-            #add_qstn.insert()
+            add_qstn.insert()
             return jsonify(
                 {
                     "success": True
                 }
             )
+        except werkzeug.exceptions.BadRequest:
+            print(sys.exc_info())
+            abort(400)
         except:
             print(sys.exc_info())
             abort(422)
+
 
 
     """
@@ -177,16 +194,18 @@ def create_app(test_config=None):
         print(search_term)
         query_value = Question.query.filter(Question.question.ilike(f"%{search_term}%")).order_by('id').all()
         #print(query_value)
-        
+
         try:
             current_questions = paginate_questions(request, query_value)
+            print(current_questions)
+            print(len(current_questions))
             #if len(current_questions) == 0:
             #    abort(404)
             return jsonify({
                 'success' : True,
                 'questions': current_questions,
                 'total_questions' : len(query_value),
-                "current_category" : "History"
+                "current_category" : None
             })
         except:
             print(sys.exc_info())
@@ -201,12 +220,14 @@ def create_app(test_config=None):
     """
     @app.route('/categories/<int:category_id>/questions')
     def retrieve_category_questions(category_id):
-        query_value = Question.query.filter(Question.category == category_id).order_by('id').all()
-        current_questions = paginate_questions(request, query_value)
-        print(current_questions)
-        if len(current_questions) == 0:
-            abort(404)
+        
         try:
+            query_value = Question.query.filter(Question.category == category_id).order_by('id').all()
+            current_questions = paginate_questions(request, query_value)
+            print(current_questions)
+            if len(current_questions) == 0:
+                raise werkzeug.exceptions.NotFound
+            
             current_category = Category.query.filter(Category.id == category_id).one_or_none()
             #print(current_category)
             #print(current_category.type)
@@ -216,9 +237,9 @@ def create_app(test_config=None):
                 'total_questions' : len(query_value),
                 "current_category" : current_category.type
             })
-        except:
+        except werkzeug.exceptions.NotFound:
             print(sys.exc_info())
-            abort(400)
+            abort(404)
 
     """
     @TODO:
@@ -231,6 +252,66 @@ def create_app(test_config=None):
     one question at a time is displayed, the user is allowed to answer
     and shown whether they were correct or not.
     """
+    @app.route('/quizzes', methods=['POST'])
+    def play_quiz():
+        try:
+            body = request.get_json()
+            print(body)
+            prev_qstn = body.get('previous_questions', None)
+            print(prev_qstn)
+            quiz_cat = body.get('quiz_category', None)
+            print(quiz_cat)
+            if type(quiz_cat) is not dict:
+                raise werkzeug.exceptions.BadRequest
+            
+            print(quiz_cat['id'])
+            print(quiz_cat['type'])
+            
+            if (len(prev_qstn) == 0 and quiz_cat['id'] == 0) :
+                print("Case 0")
+                #quiz = Question.query.first()
+                quiz = Question.query.order_by(func.random()).limit(1).one_or_none()
+            elif (len(prev_qstn) > 0 and quiz_cat['id'] == 0) :
+                print("Case 1")
+                #quiz = Question.query.filter(~Question.id.in_(prev_qstn)).first()
+                quiz = Question.query.filter(~Question.id.in_(prev_qstn)).order_by(func.random()).limit(1).one_or_none()
+            elif (len(prev_qstn) == 0 and quiz_cat['id'] != 0) :
+                print("Case 2")
+                #quiz = Question.query.filter(Question.category == quiz_cat['id']).first()
+                quiz = Question.query.filter(Question.category == quiz_cat['id']).order_by(func.random()).limit(1).one_or_none()
+            else:
+                print("Case 3")
+                #quiz = Question.query.filter(Question.category == quiz_cat['id'], ~Question.id.in_(prev_qstn)).first()
+                quiz = Question.query.filter(Question.category == quiz_cat['id'], ~Question.id.in_(prev_qstn)).order_by(func.random()).limit(1).one_or_none()
+            print(quiz)
+            print(type(quiz))
+            if quiz is None:
+                return jsonify({
+                    'success': False
+                })
+            #print(quiz.id)
+            #prev_qstn.append(quiz.id)
+            #print(prev_qstn)
+            #print(quiz.answer)
+            data = {
+                "id": quiz.id,
+                "question": quiz.question,
+                "answer": quiz.answer,
+                "difficulty": quiz.difficulty,
+                "category": quiz.category,
+            }
+            #print(data)
+            #'questions': quiz.format(),
+            #'previous_questions': prev_qstn,
+            #'quiz_category': quiz_cat['type']
+            return jsonify({
+                'success': True,
+                'question': data
+            })
+        except werkzeug.exceptions.BadRequest:
+            print(sys.exc_info())
+            print(sys.exc_info()[1])
+            abort(400)
 
     """
     @TODO:
@@ -259,7 +340,7 @@ def create_app(test_config=None):
             'success' : False,
             'error' : 422,
             'message' : "The request cannot be processed"
-        })
+        }), 422
 
     @app.errorhandler(405)
     def method_not_allowed_error(error):
@@ -267,7 +348,15 @@ def create_app(test_config=None):
             'success' : False,
             'error' : 405,
             'message' : "Method not Allowed"
-        })
-        
+        }), 405
+
+    @app.errorhandler(500)
+    def internal_server_error(error):
+        return jsonify({
+            'success' : False,
+            'error' : 500,
+            'message' : "Server Error has occured"
+        }), 500
+
     return app
 
