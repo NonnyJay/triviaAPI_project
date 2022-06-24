@@ -164,7 +164,7 @@ flask run
 ```
 
 
-##### Testing
+## Testing
 
 To test the APIs using the unittest library, you the above described steps to create and populate your `trivia_test` Database. 
 
@@ -433,7 +433,7 @@ The API will return the listed five errors when the requests fail:
 
 ## Acknowledgments
 
-I will like to acknowledge the scholarships offered by the Africa Leadership group(ALG) and the mentors,community leaders and instructors of the UDacity programme for their guidance.
+I will like to acknowledge the scholarships offered by the Africa Leadership group(ALG) and the mentors,community leaders and instructors of the Udacity programme for their guidance.
 
 - [Udacity](https://www.udacity.com/) provided the based code and instructions for the project.
 I also reference some ways to handle some of the APIs from the below platforms:

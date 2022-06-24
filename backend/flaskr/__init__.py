@@ -10,6 +10,7 @@ from sqlalchemy import func, exc
 
 from models import setup_db, Question, Category
 
+# Function used to generate paginated questions 
 QUESTIONS_PER_PAGE = 10
 def paginate_questions(request, query_value):
     page = request.args.get('page', 1, type=int)
@@ -45,17 +46,16 @@ def create_app(test_config=None):
         return response
 
     """
-    @TODO:
+    @DONE:
     Create an endpoint to handle GET requests
     for all available categories.
     """
     @app.route('/categories')
     def retrieve_categories():
         try:
+            # Fetch all categories from database
             query_value = Category.query.order_by('id').all()
-            #print(query_value)
             data= {category.id  : category.type for category in query_value}
-            #print(data)
             return jsonify({
                 'success' : True,
                 'categories': data
@@ -65,7 +65,7 @@ def create_app(test_config=None):
             abort(500)
 
     """
-    @TODO:
+    @DONE:
     Create an endpoint to handle GET requests for questions,
     including pagination (every 10 questions).
     This endpoint should return a list of questions,
@@ -79,16 +79,16 @@ def create_app(test_config=None):
     @app.route('/questions')
     def retrieve_questions():
         try:
+            # Fetches all questions and passes them to the paginate function
             query_value = Question.query.order_by('id').all()
-            #print(query_value)
             current_questions = paginate_questions(request, query_value)
             if len(current_questions) == 0:
                 raise werkzeug.exceptions.NotFound
-                #raise werkzeug.exceptions.Unauthorized
-            category_values = Category.query.order_by('id').all()
-            #print(query_value)
-            data= {category.id  : category.type for category in category_values}
 
+            category_values = Category.query.order_by('id').all()
+            
+            data= {category.id  : category.type for category in category_values}
+            # Parse response data in the expected json format
             return jsonify({
                 'success' : True,
                 'questions': current_questions,
@@ -96,7 +96,6 @@ def create_app(test_config=None):
                 'categories': data,
                 "current_category" : None
             })
-            #except TypeError:
         except werkzeug.exceptions.NotFound:
             print(sys.exc_info())
             abort(404)
@@ -105,7 +104,7 @@ def create_app(test_config=None):
             abort(400)
 
     """
-    @TODO:
+    @DONE:
     Create an endpoint to DELETE question using a question ID.
 
     TEST: When you click the trash icon next to a question, the question will be removed.
@@ -117,8 +116,8 @@ def create_app(test_config=None):
         try:
             del_question = Question.query.filter(Question.id == question_id).one_or_none()
             if del_question is None:
-                #abort(400)
                 raise werkzeug.exceptions.NotFound
+
             del_question.delete()
             return jsonify({
                 'success': True
@@ -132,7 +131,7 @@ def create_app(test_config=None):
             abort(422)
 
     """
-    @TODO:
+    @DONE:
     Create an endpoint to POST a new question,
     which will require the question and answer text,
     category, and difficulty score.
@@ -144,8 +143,7 @@ def create_app(test_config=None):
     @app.route('/questions', methods=['POST'])
     def create_question():
         body = request.get_json()
-        print(body)
-        #{'question': 'Hie', 'answer': 'whay', 'difficulty': '2', 'category': '3'} {'searchTerm': 'title'}
+        #print(body)
         new_qstn = body.get("question", None)
         new_ans = body.get("answer", None)
         new_diff = body.get("difficulty", None)
@@ -153,7 +151,6 @@ def create_app(test_config=None):
         print(new_qstn)
         try:
             if new_qstn is  None:
-                #abort(400)
                 raise werkzeug.exceptions.BadRequest
 
             add_qstn = Question(
@@ -175,10 +172,8 @@ def create_app(test_config=None):
             print(sys.exc_info())
             abort(422)
 
-
-
     """
-    @TODO:
+    @DONE:
     Create a POST endpoint to get questions based on a search term.
     It should return any questions for whom the search term
     is a substring of the question.
@@ -193,14 +188,12 @@ def create_app(test_config=None):
         search_term = request.get_json().get("searchTerm", None)
         print(search_term)
         query_value = Question.query.filter(Question.question.ilike(f"%{search_term}%")).order_by('id').all()
-        #print(query_value)
 
         try:
             current_questions = paginate_questions(request, query_value)
             print(current_questions)
             print(len(current_questions))
-            #if len(current_questions) == 0:
-            #    abort(404)
+            
             return jsonify({
                 'success' : True,
                 'questions': current_questions,
@@ -211,7 +204,7 @@ def create_app(test_config=None):
             print(sys.exc_info())
             abort(422)
     """
-    @TODO:
+    @DONE:
     Create a GET endpoint to get questions based on category.
 
     TEST: In the "List" tab / main screen, clicking on one of the
@@ -229,8 +222,7 @@ def create_app(test_config=None):
                 raise werkzeug.exceptions.NotFound
             
             current_category = Category.query.filter(Category.id == category_id).one_or_none()
-            #print(current_category)
-            #print(current_category.type)
+            
             return jsonify({
                 'success' : True,
                 'questions': current_questions,
@@ -242,7 +234,7 @@ def create_app(test_config=None):
             abort(404)
 
     """
-    @TODO:
+    @DONE:
     Create a POST endpoint to get questions to play the quiz.
     This endpoint should take category and previous question parameters
     and return a random questions within the given category,
@@ -269,15 +261,13 @@ def create_app(test_config=None):
             
             if (len(prev_qstn) == 0 and quiz_cat['id'] == 0) :
                 print("Case 0")
-                #quiz = Question.query.first()
                 quiz = Question.query.order_by(func.random()).limit(1).one_or_none()
             elif (len(prev_qstn) > 0 and quiz_cat['id'] == 0) :
                 print("Case 1")
-                #quiz = Question.query.filter(~Question.id.in_(prev_qstn)).first()
                 quiz = Question.query.filter(~Question.id.in_(prev_qstn)).order_by(func.random()).limit(1).one_or_none()
             elif (len(prev_qstn) == 0 and quiz_cat['id'] != 0) :
                 print("Case 2")
-                #quiz = Question.query.filter(Question.category == quiz_cat['id']).first()
+                
                 quiz = Question.query.filter(Question.category == quiz_cat['id']).order_by(func.random()).limit(1).one_or_none()
             else:
                 print("Case 3")
@@ -289,10 +279,6 @@ def create_app(test_config=None):
                 return jsonify({
                     'success': False
                 })
-            #print(quiz.id)
-            #prev_qstn.append(quiz.id)
-            #print(prev_qstn)
-            #print(quiz.answer)
             data = {
                 "id": quiz.id,
                 "question": quiz.question,
@@ -300,10 +286,6 @@ def create_app(test_config=None):
                 "difficulty": quiz.difficulty,
                 "category": quiz.category,
             }
-            #print(data)
-            #'questions': quiz.format(),
-            #'previous_questions': prev_qstn,
-            #'quiz_category': quiz_cat['type']
             return jsonify({
                 'success': True,
                 'question': data
@@ -314,7 +296,7 @@ def create_app(test_config=None):
             abort(400)
 
     """
-    @TODO:
+    @DONE:
     Create error handlers for all expected errors
     including 404 and 422.
     """
