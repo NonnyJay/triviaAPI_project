@@ -182,6 +182,14 @@ class TriviaTestCase(unittest.TestCase):
         self.assertEqual(res.status_code, 400)
         self.assertEqual(data['success'], False)
         self.assertEqual(data['message'], 'The request was invalid')
+        
+    def test_405_quiz_method_not_allowed(self):
+        res = self.client().get('/quizzes', json={'previous_questions' : [], 'quiz_category' : 3})
+        data = json.loads(res.data)
+        
+        self.assertEqual(res.status_code, 405)
+        self.assertEqual(data['success'], False)
+        self.assertEqual(data['message'], 'Request Method not Allowed')
 
 # Make the tests conveniently executable
 if __name__ == "__main__":

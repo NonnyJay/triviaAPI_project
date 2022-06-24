@@ -347,7 +347,7 @@ def create_app(test_config=None):
         return jsonify({
             'success' : False,
             'error' : 405,
-            'message' : "Method not Allowed"
+            'message' : "Request Method not Allowed"
         }), 405
 
     @app.errorhandler(500)
